@@ -1,0 +1,6 @@
+{
+  "name": "أرشيف وسجل القاضي",
+  "description": "نظام لإدارة وأرشفة القضايا، ومتابعة الجلسات وتنبيهاتها وقائمة المهام والبحث المتقدم للقضاة",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
