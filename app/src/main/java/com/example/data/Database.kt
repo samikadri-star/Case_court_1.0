@@ -57,7 +57,7 @@ interface TaskDao {
     suspend fun deleteTask(task: JudgeTask)
 }
 
-@Database(entities = [CourtCase::class, JudgeTask::class], version = 1, exportSchema = false)
+@Database(entities = [CourtCase::class, JudgeTask::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun caseDao(): CaseDao
     abstract fun taskDao(): TaskDao

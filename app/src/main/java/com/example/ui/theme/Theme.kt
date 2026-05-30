@@ -10,28 +10,30 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
+import androidx.compose.ui.graphics.Color
+
 private val DarkColorScheme =
-  darkColorScheme(
-    primary = CourtGold,
-    secondary = AntiqueGold,
+  lightColorScheme(
+    primary = CourtGreen,
+    secondary = CourtGold,
     tertiary = LightCourtGreen,
     background = DeepCharcoal,
     surface = DarkEmerald,
-    onPrimary = CourtGreen,
-    onSecondary = DeepCharcoal,
+    onPrimary = Color.White,
+    onSecondary = WarmWhite,
     onBackground = WarmWhite,
     onSurface = WarmWhite
   )
 
 private val LightColorScheme =
-  darkColorScheme(
-    primary = CourtGold,
-    secondary = AntiqueGold,
+  lightColorScheme(
+    primary = CourtGreen,
+    secondary = CourtGold,
     tertiary = LightCourtGreen,
     background = DeepCharcoal,
     surface = DarkEmerald,
-    onPrimary = CourtGreen,
-    onSecondary = DeepCharcoal,
+    onPrimary = Color.White,
+    onSecondary = WarmWhite,
     onBackground = WarmWhite,
     onSurface = WarmWhite
   )

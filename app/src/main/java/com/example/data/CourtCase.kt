@@ -15,6 +15,9 @@ data class CourtCase(
     val lawyer: String,              // المحامي
     val nextSessionDate: String,     // تاريخ الجلسة القادمة (e.g. "YYYY-MM-DD")
     val notes: String,               // ملاحظات
+    val status: String = "قيد النظر",    // الحالة (قيد النظر، مؤجلة، شطب، محكومة، إلخ)
+    val ruling: String = "",         // منطوق الجلسة (الحكم أو القرار المتخذ)
+    val judgeName: String = "",      // اسم القاضي
     val isArchived: Boolean = false, // حالة الأرشفة
     val createdAt: Long = System.currentTimeMillis()
 )

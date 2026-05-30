@@ -11,6 +11,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+import org.json.JSONArray
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -81,7 +83,10 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
         court: String,
         lawyer: String,
         nextSessionDate: String,
-        notes: String
+        notes: String,
+        status: String = "قيد النظر",
+        ruling: String = "",
+        judgeName: String = ""
     ) {
         viewModelScope.launch {
             val courtCase = CourtCase(
@@ -93,7 +98,10 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                 court = court,
                 lawyer = lawyer,
                 nextSessionDate = nextSessionDate,
-                notes = notes
+                notes = notes,
+                status = status,
+                ruling = ruling,
+                judgeName = judgeName
             )
             repository.insertCase(courtCase)
         }
@@ -211,13 +219,22 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
         val tableRows = StringBuilder()
 
         for ((index, item) in cases.withIndex()) {
+            val lawyerAndJudge = buildString {
+                append(item.lawyer.ifBlank { "غير محدد" })
+                if (item.judgeName.isNotBlank()) {
+                    append(" / ج: ")
+                    append(item.judgeName)
+                }
+            }
             tableRows.append("""
                 <tr>
                     <td>${index + 1}</td>
                     <td>${item.caseNumber}</td>
                     <td>${item.caseName}</td>
                     <td>${item.court}</td>
-                    <td>${item.lawyer.ifBlank { "غير محدد" }}</td>
+                    <td>$lawyerAndJudge</td>
+                    <td>${item.status}</td>
+                    <td>${item.ruling.ifBlank { "لم يصدر" }}</td>
                     <td dir="ltr">${item.nextSessionDate}</td>
                 </tr>
             """.trimIndent())
@@ -286,7 +303,7 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
             <body>
                 <div class="header">
                     <h1>الجمهوريـــة اليمنيـــة</h1>
-                    <h2>مكـتـب المحـامـي</h2>
+                    <h2>مكـتـب المحـامـي عبـداللطيـف السيـقـل</h2>
                     <h3>أرشيف وسجل القضايا الخاص بالمكتب القضائي</h3>
                     <p>تاريخ استخراج التقرير: $todayStr</p>
                 </div>
@@ -296,14 +313,16 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                         <tr>
                             <th style="width: 5%">م</th>
                             <th style="width: 15%">رقم القضية</th>
-                            <th style="width: 30%">اسم وموضوع القضية</th>
-                            <th style="width: 20%">المحكمة</th>
-                            <th style="width: 15%">المحامي</th>
-                            <th style="width: 15%">تاريخ الجلسة القادمة</th>
+                            <th style="width: 20%">اسم وموضوع القضية</th>
+                            <th style="width: 15%">المحكمة</th>
+                            <th style="width: 15%">المحامي / القاضي</th>
+                            <th style="width: 10%">الحالة</th>
+                            <th style="width: 10%">منطوق الجلسة</th>
+                            <th style="width: 10%">تاريخ الجلسة</th>
                         </tr>
                     </thead>
                     <tbody>
-                        $tableRows
+                        ${tableRows.toString()}
                     </tbody>
                 </table>
                 
@@ -313,5 +332,111 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
             </body>
             </html>
         """.trimIndent()
+    }
+
+    // JSON Backup & Restore Helpers
+    fun exportBackup(): String {
+        val casesList = activeCases.value + archivedCases.value
+        val tasksList = allTasks.value
+        
+        val casesJson = casesList.joinToString(",") { case ->
+            """
+            {
+              "caseNumber": "${escapeJson(case.caseNumber)}",
+              "registrationDay": ${case.registrationDay},
+              "registrationMonth": ${case.registrationMonth},
+              "registrationYear": ${case.registrationYear},
+              "caseName": "${escapeJson(case.caseName)}",
+              "court": "${escapeJson(case.court)}",
+              "lawyer": "${escapeJson(case.lawyer)}",
+              "nextSessionDate": "${escapeJson(case.nextSessionDate)}",
+              "notes": "${escapeJson(case.notes)}",
+              "status": "${escapeJson(case.status)}",
+              "ruling": "${escapeJson(case.ruling)}",
+              "judgeName": "${escapeJson(case.judgeName)}",
+              "isArchived": ${case.isArchived},
+              "createdAt": ${case.createdAt}
+            }
+            """.trimIndent()
+        }
+        
+        val tasksJson = tasksList.joinToString(",") { task ->
+            """
+            {
+              "title": "${escapeJson(task.title)}",
+              "description": "${escapeJson(task.description)}",
+              "dueDate": "${escapeJson(task.dueDate)}",
+              "isCompleted": ${task.isCompleted},
+              "createdAt": ${task.createdAt}
+            }
+            """.trimIndent()
+        }
+        
+        return """{"cases":[$casesJson],"tasks":[$tasksJson]}"""
+    }
+
+    private fun escapeJson(str: String): String {
+        return str.replace("\\", "\\\\")
+                  .replace("\"", "\\\"")
+                  .replace("\r", "")
+                  .replace("\n", "\\n")
+                  .replace("\t", "\\t")
+    }
+
+    fun restoreBackup(context: Context, jsonString: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val root = org.json.JSONObject(jsonString)
+                val casesArray = root.optJSONArray("cases")
+                val tasksArray = root.optJSONArray("tasks")
+                
+                var restoredCasesCount = 0
+                var restoredTasksCount = 0
+                
+                if (casesArray != null) {
+                    for (i in 0 until casesArray.length()) {
+                        val jobj = casesArray.getJSONObject(i)
+                        val courtCase = CourtCase(
+                            caseNumber = jobj.optString("caseNumber", ""),
+                            registrationDay = jobj.optInt("registrationDay", 1),
+                            registrationMonth = jobj.optInt("registrationMonth", 1),
+                            registrationYear = jobj.optInt("registrationYear", 2026),
+                            caseName = jobj.optString("caseName", ""),
+                            court = jobj.optString("court", ""),
+                            lawyer = jobj.optString("lawyer", ""),
+                            nextSessionDate = jobj.optString("nextSessionDate", ""),
+                            notes = jobj.optString("notes", ""),
+                            status = jobj.optString("status", "قيد النظر"),
+                            ruling = jobj.optString("ruling", ""),
+                            judgeName = jobj.optString("judgeName", ""),
+                            isArchived = jobj.optBoolean("isArchived", false),
+                            createdAt = jobj.optLong("createdAt", System.currentTimeMillis())
+                        )
+                        repository.insertCase(courtCase)
+                        restoredCasesCount++
+                    }
+                }
+                
+                if (tasksArray != null) {
+                    for (i in 0 until tasksArray.length()) {
+                        val jobj = tasksArray.getJSONObject(i)
+                        val task = JudgeTask(
+                            title = jobj.optString("title", ""),
+                            description = jobj.optString("description", ""),
+                            dueDate = jobj.optString("dueDate", ""),
+                            isCompleted = jobj.optBoolean("isCompleted", false),
+                            createdAt = jobj.optLong("createdAt", System.currentTimeMillis())
+                        )
+                        repository.insertTask(task)
+                        restoredTasksCount++
+                    }
+                }
+                
+                Toast.makeText(context, "تمت استعادة $restoredCasesCount قضية و $restoredTasksCount تذكير عاجل بنجاح!", Toast.LENGTH_LONG).show()
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "تنسيق غير عاجل أو تالف")
+            }
+        }
     }
 }
