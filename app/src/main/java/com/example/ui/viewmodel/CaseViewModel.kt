@@ -285,8 +285,8 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
             </head>
             <body>
                 <div class="header">
-                    <h1>جمهوريـــة مـصـر العربيـــة</h1>
-                    <h2>وزارة العــــدل</h2>
+                    <h1>الجمهوريـــة اليمنيـــة</h1>
+                    <h2>مكـتـب المحـامـي</h2>
                     <h3>أرشيف وسجل القضايا الخاص بالمكتب القضائي</h3>
                     <p>تاريخ استخراج التقرير: $todayStr</p>
                 </div>

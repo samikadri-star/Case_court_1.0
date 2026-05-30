@@ -1316,6 +1316,33 @@ fun AddOrEditCaseDialog(
         Date(System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000) // Default 7 days from now
     )
     var nextSessionDate by remember { mutableStateOf(courtCase?.nextSessionDate ?: defaultFutureDate) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val currentParts = nextSessionDate.split("-")
+        val yearVal = currentParts.getOrNull(0)?.toIntOrNull() ?: calendar.get(Calendar.YEAR)
+        val monthVal = (currentParts.getOrNull(1)?.toIntOrNull() ?: (calendar.get(Calendar.MONTH) + 1)) - 1
+        val dayVal = currentParts.getOrNull(2)?.toIntOrNull() ?: calendar.get(Calendar.DAY_OF_MONTH)
+
+        android.app.DatePickerDialog(
+            context,
+            { _, selectedYear, selectedMonth, selectedDayOfMonth ->
+                val formattedMonth = String.format(Locale.US, "%02d", selectedMonth + 1)
+                val formattedDay = String.format(Locale.US, "%02d", selectedDayOfMonth)
+                nextSessionDate = "$selectedYear-$formattedMonth-$formattedDay"
+                showDatePicker = false
+            },
+            yearVal,
+            monthVal,
+            dayVal
+        ).apply {
+            setOnDismissListener {
+                showDatePicker = false
+            }
+            show()
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -1425,15 +1452,37 @@ fun AddOrEditCaseDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                OutlinedTextField(
-                    value = nextSessionDate,
-                    onValueChange = { nextSessionDate = it },
-                    label = { Text("٦. تاريخ الجلسة القادمة (YYYY-MM-DD)") },
-                    placeholder = { Text("مثال: 2026-06-15") },
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth().testTag("input_next_session_date"),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CrimsonAlert)
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showDatePicker = true }
+                ) {
+                    OutlinedTextField(
+                        value = nextSessionDate,
+                        onValueChange = {},
+                        label = { Text("٦. تاريخ الجلسة القادمة") },
+                        placeholder = { Text("اضغط لتحديد تاريخ الجلسة") },
+                        shape = RoundedCornerShape(10.dp),
+                        readOnly = true,
+                        enabled = false,
+                        modifier = Modifier.fillMaxWidth().testTag("input_next_session_date"),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledTextColor = WarmWhite,
+                            disabledBorderColor = CourtGold,
+                            disabledLabelColor = CourtGold,
+                            disabledPlaceholderColor = CourtGold.copy(alpha = 0.6f),
+                            disabledLeadingIconColor = CourtGold,
+                            disabledTrailingIconColor = CourtGold
+                        ),
+                        trailingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = "تحديد التاريخ",
+                                tint = CourtGold
+                            )
+                        }
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
