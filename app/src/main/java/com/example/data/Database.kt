@@ -57,10 +57,26 @@ interface TaskDao {
     suspend fun deleteTask(task: JudgeTask)
 }
 
-@Database(entities = [CourtCase::class, JudgeTask::class], version = 2, exportSchema = false)
+@Dao
+interface SessionLogDao {
+    @Query("SELECT * FROM session_logs WHERE caseId = :caseId ORDER BY timestamp DESC")
+    fun getSessionLogsForCase(caseId: Int): Flow<List<SessionLog>>
+
+    @Query("SELECT * FROM session_logs ORDER BY timestamp DESC")
+    fun getAllSessionLogs(): Flow<List<SessionLog>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSessionLog(log: SessionLog): Long
+
+    @Delete
+    suspend fun deleteSessionLog(log: SessionLog)
+}
+
+@Database(entities = [CourtCase::class, JudgeTask::class, SessionLog::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun caseDao(): CaseDao
     abstract fun taskDao(): TaskDao
+    abstract fun sessionLogDao(): SessionLogDao
 
     companion object {
         @Volatile

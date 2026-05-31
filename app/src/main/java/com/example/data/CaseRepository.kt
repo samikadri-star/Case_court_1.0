@@ -2,13 +2,30 @@ package com.example.data
 
 import kotlinx.coroutines.flow.Flow
 
-class CaseRepository(private val caseDao: CaseDao, private val taskDao: TaskDao) {
+class CaseRepository(
+    private val caseDao: CaseDao,
+    private val taskDao: TaskDao,
+    private val sessionLogDao: SessionLogDao
+) {
     
     val allCases: Flow<List<CourtCase>> = caseDao.getAllCases()
     val activeCases: Flow<List<CourtCase>> = caseDao.getActiveCases()
     val archivedCases: Flow<List<CourtCase>> = caseDao.getArchivedCases()
     val allTasks: Flow<List<JudgeTask>> = taskDao.getAllTasks()
     val pendingTasks: Flow<List<JudgeTask>> = taskDao.getPendingTasks()
+    val allSessionLogs: Flow<List<SessionLog>> = sessionLogDao.getAllSessionLogs()
+
+    fun getSessionLogsForCase(caseId: Int): Flow<List<SessionLog>> {
+        return sessionLogDao.getSessionLogsForCase(caseId)
+    }
+
+    suspend fun insertSessionLog(log: SessionLog): Long {
+        return sessionLogDao.insertSessionLog(log)
+    }
+
+    suspend fun deleteSessionLog(log: SessionLog) {
+        sessionLogDao.deleteSessionLog(log)
+    }
 
     suspend fun getCaseById(id: Int): CourtCase? {
         return caseDao.getCaseById(id)

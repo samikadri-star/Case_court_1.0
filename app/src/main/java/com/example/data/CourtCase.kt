@@ -19,5 +19,11 @@ data class CourtCase(
     val ruling: String = "",         // منطوق الجلسة (الحكم أو القرار المتخذ)
     val judgeName: String = "",      // اسم القاضي
     val isArchived: Boolean = false, // حالة الأرشفة
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    
+    // New fields
+    val caseYear: String = "",       // سنة القضية
+    val caseType: String = "",       // نوع القضية (جزائية، مدنية، تجارية، إدارية، أحوال شخصية)
+    val caseSubject: String = "",    // موضوع القضية (خيانة أمانة، احتيال، تنفيذ التزام، فسخ للكراهية)
+    val disputeParties: String = ""  // أطراف الخصومة (المدعي، المدعى عليه، المدخل، المتدخل)
 )

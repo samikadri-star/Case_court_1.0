@@ -265,7 +265,7 @@ fun JudgeAppMainScreen(
             )
 
             // Search Bar & Advanced Settings (Shown on main views)
-            if (selectedTab != 2 && selectedTab != 3) {
+            if (selectedTab in 0..1) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -394,6 +394,9 @@ fun JudgeAppMainScreen(
                         onToggleTask = { viewModel.toggleTaskCompletion(it) },
                         onDeleteTask = { viewModel.deleteTask(it) }
                     )
+                    4 -> DailyJournalTabContent(
+                        viewModel = viewModel
+                    )
                 }
             }
 
@@ -454,8 +457,8 @@ fun JudgeAppMainScreen(
         if (showAddCaseDialog) {
             AddOrEditCaseDialog(
                 onDismiss = { showAddCaseDialog = false },
-                onSave = { number, d, m, y, name, court, lawyer, sessionDate, notes, status, ruling, judgeName ->
-                    viewModel.addCase(number, d, m, y, name, court, lawyer, sessionDate, notes, status, ruling, judgeName)
+                onSave = { number, d, m, y, name, court, lawyer, sessionDate, notes, status, ruling, judgeName, cYear, cType, cSubject, cParties ->
+                    viewModel.addCase(number, d, m, y, name, court, lawyer, sessionDate, notes, status, ruling, judgeName, cYear, cType, cSubject, cParties)
                     showAddCaseDialog = false
                     Toast.makeText(context, "تم حفظ سجل القضية الجديد بنجاح", Toast.LENGTH_SHORT).show()
                 }
@@ -467,7 +470,7 @@ fun JudgeAppMainScreen(
             AddOrEditCaseDialog(
                 courtCase = courtCase,
                 onDismiss = { showEditCaseDialog = null },
-                onSave = { number, d, m, y, name, court, lawyer, sessionDate, notes, status, ruling, judgeName ->
+                onSave = { number, d, m, y, name, court, lawyer, sessionDate, notes, status, ruling, judgeName, cYear, cType, cSubject, cParties ->
                     viewModel.updateCase(
                         courtCase.copy(
                             caseNumber = number,
@@ -481,7 +484,11 @@ fun JudgeAppMainScreen(
                             notes = notes,
                             status = status,
                             ruling = ruling,
-                            judgeName = judgeName
+                            judgeName = judgeName,
+                            caseYear = cYear,
+                            caseType = cType,
+                            caseSubject = cSubject,
+                            disputeParties = cParties
                         )
                     )
                     showEditCaseDialog = null
@@ -516,7 +523,8 @@ fun CustomJudgeTabs(
         Pair("القضايا النشطة", Icons.Default.Folder),
         Pair("الأرشيف القضائي", Icons.Default.Inventory),
         Pair("تنبيهات الجلسات", Icons.Default.NotificationsActive),
-        Pair("جدول المهام", Icons.Default.Task)
+        Pair("جدول المهام", Icons.Default.Task),
+        Pair("اليومية القضائية", Icons.Default.History)
     )
 
     ScrollableTabRow(
@@ -1261,6 +1269,10 @@ fun CaseDetailDialog(
 
                 // Case metadata items with elegant spacing
                 DetailFieldItem(label = "رقم القضية", value = courtCase.caseNumber, icon = Icons.Default.Info)
+                DetailFieldItem(label = "سنة القضية", value = courtCase.caseYear.ifBlank { "غير محددة" }, icon = Icons.Default.DateRange)
+                DetailFieldItem(label = "نوع القضية", value = courtCase.caseType.ifBlank { "غير محدد" }, icon = Icons.Default.Gavel)
+                DetailFieldItem(label = "موضوع القضية", value = courtCase.caseSubject.ifBlank { "غير محدد" }, icon = Icons.Default.Info)
+                DetailFieldItem(label = "أطراف الخصومة", value = courtCase.disputeParties.ifBlank { "غير محدد" }, icon = Icons.Default.Person)
                 DetailFieldItem(label = "تاريخ القيد والتسجيل", value = "${courtCase.registrationDay} / ${courtCase.registrationMonth} / ${courtCase.registrationYear}", icon = Icons.Default.DateRange)
                 DetailFieldItem(label = "اسم وموضوع الدعوى (الأطراف)", value = courtCase.caseName, icon = Icons.Default.Gavel, highlight = true)
                 DetailFieldItem(label = "المحكمة المختصة الدائرة", value = courtCase.court, icon = Icons.Default.AccountBalance)
@@ -1418,7 +1430,11 @@ fun AddOrEditCaseDialog(
         notes: String,
         status: String,
         ruling: String,
-        judgeName: String
+        judgeName: String,
+        caseYear: String,
+        caseType: String,
+        caseSubject: String,
+        disputeParties: String
     ) -> Unit
 ) {
     var caseNumber by remember { mutableStateOf(courtCase?.caseNumber ?: "") }
@@ -1429,6 +1445,10 @@ fun AddOrEditCaseDialog(
     var status by remember { mutableStateOf(courtCase?.status ?: "قيد النظر") }
     var ruling by remember { mutableStateOf(courtCase?.ruling ?: "") }
     var judgeName by remember { mutableStateOf(courtCase?.judgeName ?: "") }
+    var caseYear by remember { mutableStateOf(courtCase?.caseYear ?: "") }
+    var caseType by remember { mutableStateOf(courtCase?.caseType ?: "") }
+    var caseSubject by remember { mutableStateOf(courtCase?.caseSubject ?: "") }
+    var disputeParties by remember { mutableStateOf(courtCase?.disputeParties ?: "") }
 
     // Registration date components
     val calendar = Calendar.getInstance()
@@ -1504,9 +1524,57 @@ fun AddOrEditCaseDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                OutlinedTextField(
+                    value = caseYear,
+                    onValueChange = { caseYear = it },
+                    label = { Text("٢. سنة القضية") },
+                    placeholder = { Text("مثال: ٢٠٢٦ أو ١٤٤٧هـ") },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("input_case_year"),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = caseType,
+                    onValueChange = { caseType = it },
+                    label = { Text("٣. نوع القضية") },
+                    placeholder = { Text("جزائية، مدنية، تجارية، إدارية، أحوال شخصية...إلخ") },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("input_case_type"),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = caseSubject,
+                    onValueChange = { caseSubject = it },
+                    label = { Text("٤. موضوع القضية") },
+                    placeholder = { Text("خيانة أمانة، احتيال، تنفيذ التزام، فسخ للكراهية...إلخ") },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("input_case_subject"),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = disputeParties,
+                    onValueChange = { disputeParties = it },
+                    label = { Text("٥. أطراف الخصومة") },
+                    placeholder = { Text("المدعي، المدعى عليه، المدخل، المتدخل...إلخ") },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("input_case_parties"),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
                 // Registration date components helper
                 Text(
-                    text = "٢. تاريخ التسجيل باليوم والشهر والسنة",
+                    text = "٦. تاريخ القيد والتسجيل باليوم والشهر والسنة",
                     fontSize = 11.sp,
                     color = SlateText,
                     fontWeight = FontWeight.Bold,
@@ -1547,7 +1615,7 @@ fun AddOrEditCaseDialog(
                 OutlinedTextField(
                     value = caseName,
                     onValueChange = { caseName = it },
-                    label = { Text("٣. اسم وموضوع القضية (الخصوم)") },
+                    label = { Text("٧. اسم وموضوع القضية (الخصوم)") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().testTag("input_case_name"),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
@@ -1558,7 +1626,7 @@ fun AddOrEditCaseDialog(
                 OutlinedTextField(
                     value = court,
                     onValueChange = { court = it },
-                    label = { Text("٤. المحكمة المختصة") },
+                    label = { Text("٨. المحكمة المختصة") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().testTag("input_case_court"),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
@@ -1569,7 +1637,7 @@ fun AddOrEditCaseDialog(
                 OutlinedTextField(
                     value = lawyer,
                     onValueChange = { lawyer = it },
-                    label = { Text("٥. المحامي الوكيل") },
+                    label = { Text("٩. المحامي الوكيل") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().testTag("input_case_lawyer"),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
@@ -1580,7 +1648,7 @@ fun AddOrEditCaseDialog(
                 OutlinedTextField(
                     value = status,
                     onValueChange = { status = it },
-                    label = { Text("٦. الحالة القضائية الحالية") },
+                    label = { Text("١٠. حالة القضية القضائية") },
                     placeholder = { Text("مثال: قيد النظر، مؤجلة، شطب، محكومة") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().testTag("input_case_status"),
@@ -1592,7 +1660,7 @@ fun AddOrEditCaseDialog(
                 OutlinedTextField(
                     value = ruling,
                     onValueChange = { ruling = it },
-                    label = { Text("٧. منطوق الجلسة (الحكم أو القرار)") },
+                    label = { Text("١١. قرار ومنطوق الجلسة") },
                     placeholder = { Text("أدخل القرار أو الحكم المتخذ...") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().testTag("input_case_ruling"),
@@ -1604,7 +1672,7 @@ fun AddOrEditCaseDialog(
                 OutlinedTextField(
                     value = judgeName,
                     onValueChange = { judgeName = it },
-                    label = { Text("٨. رئيس الجلسة / اسم القاضي") },
+                    label = { Text("١٢. القاضي متولي القضية") },
                     placeholder = { Text("أدخل اسم القاضي أو الهيئة القضائية...") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().testTag("input_case_judge_name"),
@@ -1621,7 +1689,7 @@ fun AddOrEditCaseDialog(
                     OutlinedTextField(
                         value = nextSessionDate,
                         onValueChange = {},
-                        label = { Text("٩. تاريخ الجلسة القادمة") },
+                        label = { Text("١٣. تاريخ الجلسة القادمة") },
                         placeholder = { Text("اضغط لتحديد تاريخ الجلسة") },
                         shape = RoundedCornerShape(10.dp),
                         readOnly = true,
@@ -1650,7 +1718,7 @@ fun AddOrEditCaseDialog(
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("١٠. ملاحظات ومذكرات وتفاصيل") },
+                    label = { Text("١٤. ملاحظات ومذكرات وتفاصيل") },
                     minLines = 3,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().testTag("input_case_notes"),
@@ -1673,7 +1741,10 @@ fun AddOrEditCaseDialog(
                             val month = regMonth.toIntOrNull() ?: (calendar.get(Calendar.MONTH) + 1)
                             val year = regYear.toIntOrNull() ?: calendar.get(Calendar.YEAR)
 
-                            onSave(caseNumber, day, month, year, caseName, court, lawyer, nextSessionDate, notes, status, ruling, judgeName)
+                            onSave(
+                                caseNumber, day, month, year, caseName, court, lawyer, nextSessionDate, notes, status, ruling, judgeName,
+                                caseYear, caseType, caseSubject, disputeParties
+                            )
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = CourtGreen),
                         modifier = Modifier.weight(1f).testTag("save_case_button"),
@@ -1888,6 +1959,690 @@ fun RestoreBackupDialog(
                     ) {
                         Text("إلغاء")
                     }
+                }
+            }
+        }
+    }
+}
+
+// -------------------------------- TAB 5: DAILY JOURNAL & TIMELINE --------------------------------
+@Composable
+fun DailyJournalTabContent(
+    viewModel: CaseViewModel
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val activeCases by viewModel.activeCases.collectAsStateWithLifecycle(emptyList())
+    val archivedCases by viewModel.archivedCases.collectAsStateWithLifecycle(emptyList())
+    val allCases = remember(activeCases, archivedCases) { activeCases + archivedCases }
+
+    var selectedCaseId by remember { mutableStateOf<Int?>(null) }
+    var showCasePickerDialog by remember { mutableStateOf(false) }
+
+    val selectedCase = remember(allCases, selectedCaseId) {
+        allCases.find { it.id == selectedCaseId }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DeepCharcoal)
+            .padding(16.dp)
+    ) {
+        // Selector Header Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkEmerald),
+            border = BorderStroke(1.dp, SoftGray)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "اليومية وسجل متابعة الجلسات في الجمهورية اليمنية",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CourtGold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = selectedCase?.let { "القضية المحددة: ${it.caseName}" } ?: "لم يتم اختيار ملف قضية للمتابعة بعد",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = SlateText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (selectedCase != null) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "رقم القضية: ${selectedCase.caseNumber} • المحكمة: ${selectedCase.court}",
+                            fontSize = 11.sp,
+                            color = AntiqueGold
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = { showCasePickerDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = CourtGreen),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    val labelText = if (selectedCase == null) "اختر ملف قضية" else "تغيير القضية"
+                    Text(labelText, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        if (selectedCase == null) {
+            // Placeholder empty state
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .padding(24.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkEmerald),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = null,
+                            tint = CourtGold.copy(alpha = 0.6f),
+                            modifier = Modifier.size(56.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "سجل اليومية القضائية الرسمي",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SlateText,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "اختر أي قضية محفوظة في مكتب المحامي عبداللطيف السيقل للبدء في تدوين القرارات اليومية وجلساتها المتعاقبة، والاحتفاظ بالسجل التاريخي مع ميزة طباعته.",
+                            fontSize = 12.sp,
+                            color = AntiqueGold,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 18.sp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { showCasePickerDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = CourtGreen),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("البحث وتحديد ملف قضية", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        } else {
+            // Interactive layout with Form and Logs timeline
+            val sessionLogs by viewModel.getSessionLogsForCase(selectedCase.id).collectAsStateWithLifecycle(emptyList())
+
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Left Column: Core Session Timeline Scribe & Actions (takes 1.2 weight)
+                Column(
+                    modifier = Modifier
+                        .weight(1.2f)
+                        .fillMaxHeight()
+                ) {
+                    // Logs title & print actions
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "سجل الجلسات التاريخي (${sessionLogs.size} جلسات)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SlateText
+                        )
+
+                        if (sessionLogs.isNotEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    viewModel.printSessionLogsReport(context, selectedCase, sessionLogs)
+                                },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(CourtGold.copy(alpha = 0.15f))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Print,
+                                    contentDescription = "طباعة تقرير سير الجلسات",
+                                    tint = CourtGold,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        if (sessionLogs.isEmpty()) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(vertical = 4.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = DarkEmerald),
+                                border = BorderStroke(1.dp, SoftGray)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(20.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text(
+                                        text = "السجل فارغ تماماً",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = AntiqueGold
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "لم يتم تسجيل أي قرارات يومية في هذه القضية بعد. استخدم استمارة الإدخال المقابلة لإضافة أول محضر جلسة.",
+                                        fontSize = 11.sp,
+                                        color = AntiqueGold.copy(alpha = 0.8f),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(sessionLogs) { log ->
+                                    SessionLogItemCard(log = log, onDelete = { viewModel.deleteSessionLog(it) })
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Right Column: Input form to record next timeline state (takes 1f weight)
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkEmerald),
+                    border = BorderStroke(1.dp, SoftGray)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(14.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            text = "تسجيل قرار وجلسة جديدة",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CourtGreen,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        var lastSessionDate by remember { mutableStateOf("") }
+                        var decision by remember { mutableStateOf("") }
+                        var nextSessionDate by remember { mutableStateOf("") }
+                        var logNotes by remember { mutableStateOf("") }
+                        
+                        var showLastDatePicker by remember { mutableStateOf(false) }
+                        var showNextDatePicker by remember { mutableStateOf(false) }
+
+                        // Date Pickers dialog popups
+                        val calendar = Calendar.getInstance()
+                        if (showLastDatePicker) {
+                            android.app.DatePickerDialog(
+                                context,
+                                { _, sy, sm, sd ->
+                                    val formattedMonth = String.format(Locale.US, "%02d", sm + 1)
+                                    val formattedDay = String.format(Locale.US, "%02d", sd)
+                                    lastSessionDate = "$sy-$formattedMonth-$formattedDay"
+                                    showLastDatePicker = false
+                                },
+                                calendar.get(Calendar.YEAR),
+                                calendar.get(Calendar.MONTH),
+                                calendar.get(Calendar.DAY_OF_MONTH)
+                            ).apply {
+                                setOnDismissListener { showLastDatePicker = false }
+                                show()
+                            }
+                        }
+
+                        if (showNextDatePicker) {
+                            android.app.DatePickerDialog(
+                                context,
+                                { _, sy, sm, sd ->
+                                    val formattedMonth = String.format(Locale.US, "%02d", sm + 1)
+                                    val formattedDay = String.format(Locale.US, "%02d", sd)
+                                    nextSessionDate = "$sy-$formattedMonth-$formattedDay"
+                                    showNextDatePicker = false
+                                },
+                                calendar.get(Calendar.YEAR),
+                                calendar.get(Calendar.MONTH),
+                                calendar.get(Calendar.DAY_OF_MONTH)
+                            ).apply {
+                                setOnDismissListener { showNextDatePicker = false }
+                                show()
+                            }
+                        }
+
+                        // Last Session Date Input
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showLastDatePicker = true }
+                        ) {
+                            OutlinedTextField(
+                                value = lastSessionDate,
+                                onValueChange = {},
+                                label = { Text("تاريخ الجلسة الأخيرة") },
+                                placeholder = { Text("أدخل تاريخ جلسة اليوم...") },
+                                readOnly = true,
+                                enabled = false,
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    disabledTextColor = SlateText,
+                                    disabledBorderColor = SoftGray,
+                                    disabledLabelColor = CourtGreen
+                                ),
+                                trailingIcon = {
+                                    Icon(imageVector = Icons.Default.DateRange, contentDescription = null, tint = CourtGold)
+                                }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Decision / Status
+                        OutlinedTextField(
+                            value = decision,
+                            onValueChange = { decision = it },
+                            label = { Text("قرار ومنطوق الجلسة") },
+                            placeholder = { Text("تحت الدراسة، التأجيل لحضور المدعي...") },
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
+                        )
+
+                        // Quick-decision buttons for speedy judicial entry
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            listOf("تأجيل لتقديم رد", "حجز للحكم", "ندب خبير").forEach { suggestion ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(CourtGold.copy(alpha = 0.12f))
+                                        .clickable { decision = suggestion }
+                                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                                ) {
+                                    Text(suggestion, fontSize = 9.sp, color = SlateText)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Next Session Date
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showNextDatePicker = true }
+                        ) {
+                            OutlinedTextField(
+                                value = nextSessionDate,
+                                onValueChange = {},
+                                label = { Text("تاريخ الجلسة القادمة المجدولة") },
+                                placeholder = { Text("تحديد موعد المتابعة القادمة") },
+                                readOnly = true,
+                                enabled = false,
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    disabledTextColor = SlateText,
+                                    disabledBorderColor = SoftGray,
+                                    disabledLabelColor = CourtGreen
+                                ),
+                                trailingIcon = {
+                                    Icon(imageVector = Icons.Default.DateRange, contentDescription = null, tint = CourtGold)
+                                }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Notes Scribe
+                        OutlinedTextField(
+                            value = logNotes,
+                            onValueChange = { logNotes = it },
+                            label = { Text("ملاحظات وتفاصيل التدوين اليومي") },
+                            placeholder = { Text("كتابة مذكرات أو مهام ثانوية مطلوبة...") },
+                            minLines = 3,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                if (lastSessionDate.isBlank() || decision.isBlank() || nextSessionDate.isBlank()) {
+                                    Toast.makeText(context, "الرجاء تعبئة مواعيد الجلسات والقرار لتسجيل اليومية", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                viewModel.addSessionLog(
+                                    caseId = selectedCase.id,
+                                    lastSessionDate = lastSessionDate,
+                                    decision = decision,
+                                    nextSessionDate = nextSessionDate,
+                                    logNotes = logNotes
+                                )
+                                // success reset
+                                lastSessionDate = ""
+                                decision = ""
+                                nextSessionDate = ""
+                                logNotes = ""
+                                Toast.makeText(context, "تم قيد اليومية وتحديث القضية تلقائياً", Toast.LENGTH_SHORT).show()
+                            },
+                            enabled = lastSessionDate.isNotBlank() && decision.isNotBlank() && nextSessionDate.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = CourtGreen),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("قيد الجلسة في اليومية", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Modal Case Picker Dialog
+    if (showCasePickerDialog) {
+        CasePickerDialog(
+            cases = allCases,
+            onDismiss = { showCasePickerDialog = false },
+            onSelect = { 
+                selectedCaseId = it.id
+                showCasePickerDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun SessionLogItemCard(
+    log: com.example.data.SessionLog,
+    onDelete: (com.example.data.SessionLog) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkEmerald),
+        border = BorderStroke(1.dp, SoftGray)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(CourtGreen.copy(alpha = 0.1f))
+                            .padding(6.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.DateRange, contentDescription = null, tint = CourtGreen, modifier = Modifier.size(14.dp))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "جلسة تاريخ: ${log.lastSessionDate}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CourtGreen
+                    )
+                }
+
+                IconButton(
+                    onClick = { onDelete(log) },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = "حذف الجلسة", tint = CrimsonAlert, modifier = Modifier.size(16.dp))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Decision
+            Text(
+                text = "القرار المتخذ والمنطوق:",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = CourtGold
+            )
+            Text(
+                text = log.decision,
+                fontSize = 12.sp,
+                color = SlateText,
+                modifier = Modifier.padding(vertical = 2.dp)
+            )
+
+            // Next session timeline
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(imageVector = Icons.Default.History, contentDescription = null, tint = AntiqueGold, modifier = Modifier.size(12.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "تاريخ الجلسة القادمة: ${log.nextSessionDate}",
+                    fontSize = 11.sp,
+                    color = AntiqueGold,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            if (log.logNotes.isNotBlank()) {
+                Divider(modifier = Modifier.padding(vertical = 6.dp), color = SoftGray)
+                Text(
+                    text = "ملاحظات ومذكرات المتابعة:",
+                    fontSize = 10.sp,
+                    color = AntiqueGold,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = log.logNotes,
+                    fontSize = 11.sp,
+                    color = WarmWhite
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CasePickerDialog(
+    cases: List<CourtCase>,
+    onDismiss: () -> Unit,
+    onSelect: (CourtCase) -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredCases = remember(cases, searchQuery) {
+        if (searchQuery.isBlank()) cases else {
+            cases.filter { 
+                it.caseNumber.contains(searchQuery, ignoreCase = true) || 
+                it.caseName.contains(searchQuery, ignoreCase = true) ||
+                it.court.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 24.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkEmerald),
+            border = BorderStroke(1.dp, CourtGreen)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "البحث واختيار ملف قضية",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = CourtGreen,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("ابحث بالاسم، رقم القضية، المحكمة...") },
+                    leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = CourtGold) },
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(280.dp)
+                ) {
+                    if (filteredCases.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "لا توجد قضايا مطابقة للبحث",
+                                color = AntiqueGold,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(filteredCases) { courtCase ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onSelect(courtCase) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = DeepCharcoal),
+                                    border = BorderStroke(1.dp, SoftGray)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(10.dp)
+                                    ) {
+                                        Text(
+                                            text = courtCase.caseName,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = SlateText,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "رقم: ${courtCase.caseNumber}",
+                                                fontSize = 11.sp,
+                                                color = CourtGold,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = "المحكمة: ${courtCase.court}",
+                                                fontSize = 11.sp,
+                                                color = AntiqueGold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("إغلاق", fontSize = 12.sp)
                 }
             }
         }
