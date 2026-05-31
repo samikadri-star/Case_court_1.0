@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.*
@@ -97,6 +99,42 @@ fun JudgeAppMainScreen(
     var showAddTaskDialog by remember { mutableStateOf(false) }
     var showEditCaseDialog by remember { mutableStateOf<CourtCase?>(null) }
     var showRestoreDialog by remember { mutableStateOf(false) }
+
+    // SAF Document Launchers for Local File Backup & Restore
+    val createBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    val backupStr = viewModel.exportBackup()
+                    outputStream.write(backupStr.toByteArray(Charsets.UTF_8))
+                }
+                Toast.makeText(context, "تم تصدير وحفظ ملف النسخة الاحتياطية بنجاح في جهازك!", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "فشل حفظ الملف: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val restoreBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    val jsonString = inputStream.bufferedReader().use { it.readText() }
+                    viewModel.restoreBackup(context, jsonString, onSuccess = {
+                        Toast.makeText(context, "تمت استعادة السجل القضائي بالكامل من الملف المختار بنجاح!", Toast.LENGTH_LONG).show()
+                    }, onError = { err ->
+                        Toast.makeText(context, "خطأ في بنية الملف وتصنيفه: $err", Toast.LENGTH_LONG).show()
+                    })
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "فشل قراءة الملف المختار للجلسات: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
     
     // Quick filters state
     var selectedCourtFilter by remember { mutableStateOf<String?>(null) }
@@ -197,17 +235,13 @@ fun JudgeAppMainScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Backup Action Button
+                    // Backup Action Button (Saves to a local file in phone storage)
                     IconButton(
                         onClick = {
                             try {
-                                val backupStr = viewModel.exportBackup()
-                                val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                val clipData = android.content.ClipData.newPlainText("سجل القضايا - نسخة احتياطية", backupStr)
-                                clipboardManager.setPrimaryClip(clipData)
-                                Toast.makeText(context, "تم توليد النسخة الاحتياطية ونسخها للحافظة بنجاح! قم بحفظ الكود في مكان آمن لاستعادته لاحقاً.", Toast.LENGTH_LONG).show()
+                                createBackupLauncher.launch("sajjal_al_qada_backup.json")
                             } catch (e: Exception) {
-                                Toast.makeText(context, "فشل إنشاء النسخة الاحتياطية: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "فشل حفظ الملف: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier
@@ -216,7 +250,7 @@ fun JudgeAppMainScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.CloudUpload,
-                            contentDescription = "نسخ نسخة احتياطية",
+                            contentDescription = "تصدير نسخة احتياطية لملف",
                             tint = CourtGold
                         )
                     }
@@ -409,7 +443,7 @@ fun JudgeAppMainScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "تطوير سامي القادري",
+                    text = "تطوير: سامي القادري - ٧٧٧٤٨٤١٦٠",
                     fontSize = 11.sp,
                     color = CourtGreen.copy(alpha = 0.7f),
                     fontWeight = FontWeight.Bold
@@ -430,6 +464,14 @@ fun JudgeAppMainScreen(
                             Toast.makeText(context, error, Toast.LENGTH_LONG).show()
                         }
                     )
+                },
+                onSelectFile = {
+                    showRestoreDialog = false
+                    try {
+                        restoreBackupLauncher.launch(arrayOf("application/json", "application/octet-stream"))
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "فشل فتح مستعرض الملفات: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                    }
                 }
             )
         }
@@ -1613,20 +1655,9 @@ fun AddOrEditCaseDialog(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 OutlinedTextField(
-                    value = caseName,
-                    onValueChange = { caseName = it },
-                    label = { Text("٧. اسم وموضوع القضية (الخصوم)") },
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth().testTag("input_case_name"),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
                     value = court,
                     onValueChange = { court = it },
-                    label = { Text("٨. المحكمة المختصة") },
+                    label = { Text("٧. المحكمة المختصة") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().testTag("input_case_court"),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
@@ -1637,7 +1668,7 @@ fun AddOrEditCaseDialog(
                 OutlinedTextField(
                     value = lawyer,
                     onValueChange = { lawyer = it },
-                    label = { Text("٩. المحامي الوكيل") },
+                    label = { Text("٨. المحامي الوكيل") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().testTag("input_case_lawyer"),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
@@ -1648,7 +1679,7 @@ fun AddOrEditCaseDialog(
                 OutlinedTextField(
                     value = status,
                     onValueChange = { status = it },
-                    label = { Text("١٠. حالة القضية القضائية") },
+                    label = { Text("٩. حالة القضية القضائية") },
                     placeholder = { Text("مثال: قيد النظر، مؤجلة، شطب، محكومة") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().testTag("input_case_status"),
@@ -1658,21 +1689,9 @@ fun AddOrEditCaseDialog(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 OutlinedTextField(
-                    value = ruling,
-                    onValueChange = { ruling = it },
-                    label = { Text("١١. قرار ومنطوق الجلسة") },
-                    placeholder = { Text("أدخل القرار أو الحكم المتخذ...") },
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth().testTag("input_case_ruling"),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CourtGreen)
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
                     value = judgeName,
                     onValueChange = { judgeName = it },
-                    label = { Text("١٢. القاضي متولي القضية") },
+                    label = { Text("١٠. القاضي متولي القضية") },
                     placeholder = { Text("أدخل اسم القاضي أو الهيئة القضائية...") },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().testTag("input_case_judge_name"),
@@ -1681,44 +1700,10 @@ fun AddOrEditCaseDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showDatePicker = true }
-                ) {
-                    OutlinedTextField(
-                        value = nextSessionDate,
-                        onValueChange = {},
-                        label = { Text("١٣. تاريخ الجلسة القادمة") },
-                        placeholder = { Text("اضغط لتحديد تاريخ الجلسة") },
-                        shape = RoundedCornerShape(10.dp),
-                        readOnly = true,
-                        enabled = false,
-                        modifier = Modifier.fillMaxWidth().testTag("input_next_session_date"),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = WarmWhite,
-                            disabledBorderColor = CourtGold,
-                            disabledLabelColor = CourtGold,
-                            disabledPlaceholderColor = CourtGold.copy(alpha = 0.6f),
-                            disabledLeadingIconColor = CourtGold,
-                            disabledTrailingIconColor = CourtGold
-                        ),
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.DateRange,
-                                contentDescription = "تحديد التاريخ",
-                                tint = CourtGold
-                            )
-                        }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("١٤. ملاحظات ومذكرات وتفاصيل") },
+                    label = { Text("١١. ملاحظات ومذكرات وتفاصيل") },
                     minLines = 3,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth().testTag("input_case_notes"),
@@ -1734,21 +1719,25 @@ fun AddOrEditCaseDialog(
                 ) {
                     Button(
                         onClick = {
-                            if (caseNumber.isBlank() || caseName.isBlank() || court.isBlank()) {
+                            if (caseNumber.isBlank() || disputeParties.isBlank() || court.isBlank()) {
                                 return@Button
                             }
                             val day = regDay.toIntOrNull() ?: calendar.get(Calendar.DAY_OF_MONTH)
                             val month = regMonth.toIntOrNull() ?: (calendar.get(Calendar.MONTH) + 1)
                             val year = regYear.toIntOrNull() ?: calendar.get(Calendar.YEAR)
 
+                            val finalCaseName = disputeParties
+                            val finalNextSessionDate = courtCase?.nextSessionDate ?: ""
+                            val finalRuling = courtCase?.ruling ?: ""
+
                             onSave(
-                                caseNumber, day, month, year, caseName, court, lawyer, nextSessionDate, notes, status, ruling, judgeName,
+                                caseNumber, day, month, year, finalCaseName, court, lawyer, finalNextSessionDate, notes, status, finalRuling, judgeName,
                                 caseYear, caseType, caseSubject, disputeParties
                             )
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = CourtGreen),
                         modifier = Modifier.weight(1f).testTag("save_case_button"),
-                        enabled = caseNumber.isNotBlank() && caseName.isNotBlank() && court.isNotBlank(),
+                        enabled = caseNumber.isNotBlank() && disputeParties.isNotBlank() && court.isNotBlank(),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("حفظ السجل القضائي", fontWeight = FontWeight.Bold, color = Color.White)
@@ -1888,7 +1877,8 @@ fun calculateRemainingDays(dateStr: String): Int {
 @Composable
 fun RestoreBackupDialog(
     onDismiss: () -> Unit,
-    onRestore: (String) -> Unit
+    onRestore: (String) -> Unit,
+    onSelectFile: () -> Unit
 ) {
     var backupText by remember { mutableStateOf("") }
     Dialog(onDismissRequest = onDismiss) {
@@ -1913,9 +1903,42 @@ fun RestoreBackupDialog(
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
 
+                // High-profile File Picker Option
+                Button(
+                    onClick = {
+                        onSelectFile()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CourtGold),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FolderOpen,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("استيراد من ملف نسخة احتياطية (.json)", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Divider(modifier = Modifier.weight(1f), color = SoftGray)
+                    Text(
+                        text = "أو لصق يدوي",
+                        fontSize = 10.sp,
+                        color = AntiqueGold,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                    Divider(modifier = Modifier.weight(1f), color = SoftGray)
+                }
+
                 Text(
                     text = "قم بلصق كود النسخة الاحتياطية (JSON) الذي قمت بنسخه مسبقاً في الحقل أدناه لإستعادة كافة القضايا والتذكيرات المكتوبية فوراً:",
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     color = SlateText,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
