@@ -33,16 +33,16 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
 
     // Lists from DB
     val activeCases: StateFlow<List<CourtCase>> = repository.activeCases
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val archivedCases: StateFlow<List<CourtCase>> = repository.archivedCases
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val allTasks: StateFlow<List<JudgeTask>> = repository.allTasks
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val allSessionLogs: StateFlow<List<SessionLog>> = repository.allSessionLogs
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // Live filtered search cases
     val searchResults: StateFlow<List<CourtCase>> = _searchQuery
@@ -395,10 +395,12 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     fun exportBackup(): String {
         val casesList = activeCases.value + archivedCases.value
         val tasksList = allTasks.value
+        val logsList = allSessionLogs.value
         
         val casesJson = casesList.joinToString(",") { case ->
             """
             {
+              "id": ${case.id},
               "caseNumber": "${escapeJson(case.caseNumber)}",
               "registrationDay": ${case.registrationDay},
               "registrationMonth": ${case.registrationMonth},
@@ -432,8 +434,22 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
             }
             """.trimIndent()
         }
+
+        val logsJson = logsList.joinToString(",") { log ->
+            """
+            {
+              "logId": ${log.logId},
+              "caseId": ${log.caseId},
+              "lastSessionDate": "${escapeJson(log.lastSessionDate)}",
+              "decision": "${escapeJson(log.decision)}",
+              "nextSessionDate": "${escapeJson(log.nextSessionDate)}",
+              "logNotes": "${escapeJson(log.logNotes)}",
+              "timestamp": ${log.timestamp}
+            }
+            """.trimIndent()
+        }
         
-        return """{"cases":[$casesJson],"tasks":[$tasksJson]}"""
+        return """{"cases":[$casesJson],"tasks":[$tasksJson],"sessionLogs":[$logsJson]}"""
     }
 
     private fun escapeJson(str: String): String {
@@ -450,14 +466,17 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                 val root = org.json.JSONObject(jsonString)
                 val casesArray = root.optJSONArray("cases")
                 val tasksArray = root.optJSONArray("tasks")
+                val logsArray = root.optJSONArray("sessionLogs")
                 
                 var restoredCasesCount = 0
                 var restoredTasksCount = 0
+                var restoredLogsCount = 0
                 
                 if (casesArray != null) {
                     for (i in 0 until casesArray.length()) {
                         val jobj = casesArray.getJSONObject(i)
                         val courtCase = CourtCase(
+                            id = jobj.optInt("id", 0),
                             caseNumber = jobj.optString("caseNumber", ""),
                             registrationDay = jobj.optInt("registrationDay", 1),
                             registrationMonth = jobj.optInt("registrationMonth", 1),
@@ -496,8 +515,25 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
                         restoredTasksCount++
                     }
                 }
+
+                if (logsArray != null) {
+                    for (i in 0 until logsArray.length()) {
+                        val jobj = logsArray.getJSONObject(i)
+                        val log = SessionLog(
+                            logId = jobj.optInt("logId", 0),
+                            caseId = jobj.optInt("caseId", 0),
+                            lastSessionDate = jobj.optString("lastSessionDate", ""),
+                            decision = jobj.optString("decision", ""),
+                            nextSessionDate = jobj.optString("nextSessionDate", ""),
+                            logNotes = jobj.optString("logNotes", ""),
+                            timestamp = jobj.optLong("timestamp", System.currentTimeMillis())
+                        )
+                        repository.insertSessionLog(log)
+                        restoredLogsCount++
+                    }
+                }
                 
-                Toast.makeText(context, "تمت استعادة $restoredCasesCount قضية و $restoredTasksCount تذكير عاجل بنجاح!", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "تمت استعادة $restoredCasesCount قضية و $restoredTasksCount تذكير عاجل و $restoredLogsCount جلسة بنجاح!", Toast.LENGTH_LONG).show()
                 onSuccess()
             } catch (e: Exception) {
                 onError(e.localizedMessage ?: "تنسيق غير عاجل أو تالف")
