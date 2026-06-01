@@ -3,6 +3,8 @@ package com.example
 import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -85,6 +87,7 @@ fun JudgeAppMainScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val activeCases by viewModel.activeCases.collectAsStateWithLifecycle()
     val archivedCases by viewModel.archivedCases.collectAsStateWithLifecycle()
     val allTasks by viewModel.allTasks.collectAsStateWithLifecycle()
@@ -105,14 +108,16 @@ fun JudgeAppMainScreen(
         contract = ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
         if (uri != null) {
-            try {
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+            coroutineScope.launch {
+                try {
                     val backupStr = viewModel.exportBackup()
-                    outputStream.write(backupStr.toByteArray(Charsets.UTF_8))
+                    context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                        outputStream.write(backupStr.toByteArray(Charsets.UTF_8))
+                    }
+                    Toast.makeText(context, "تم تصدير وحفظ ملف النسخة الاحتياطية بنجاح في جهازك!", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "فشل حفظ الملف: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
-                Toast.makeText(context, "تم تصدير وحفظ ملف النسخة الاحتياطية بنجاح في جهازك!", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "فشل حفظ الملف: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
             }
         }
     }

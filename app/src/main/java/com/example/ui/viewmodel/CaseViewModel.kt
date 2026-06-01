@@ -392,10 +392,10 @@ class CaseViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // JSON Backup & Restore Helpers
-    fun exportBackup(): String {
-        val casesList = activeCases.value + archivedCases.value
-        val tasksList = allTasks.value
-        val logsList = allSessionLogs.value
+    suspend fun exportBackup(): String {
+        val casesList = repository.allCases.first()
+        val tasksList = repository.allTasks.first()
+        val logsList = repository.allSessionLogs.first()
         
         val casesJson = casesList.joinToString(",") { case ->
             """
