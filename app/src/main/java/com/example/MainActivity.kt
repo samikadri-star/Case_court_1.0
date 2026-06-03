@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.CourtCase
 import com.example.data.JudgeTask
@@ -181,7 +182,12 @@ fun JudgeAppMainScreen(
                 )
             )
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = 760.dp)
+                .align(Alignment.TopCenter)
+        ) {
             
             // Royal Court Header Logo & Title
             Row(
@@ -1268,11 +1274,15 @@ fun CaseDetailDialog(
     onDelete: () -> Unit,
     onEdit: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(6.dp),
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 620.dp)
+                .padding(vertical = 12.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = DeepCharcoal),
             border = BorderStroke(1.dp, CourtGold)
@@ -1536,10 +1546,14 @@ fun AddOrEditCaseDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 620.dp)
                 .padding(vertical = 12.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = DeepCharcoal),
@@ -1773,11 +1787,15 @@ fun AddTaskDialog(
     )
     var dueDate by remember { mutableStateOf(defaultFutureDate) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(6.dp),
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 580.dp)
+                .padding(vertical = 12.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = DeepCharcoal),
             border = BorderStroke(1.dp, CourtGold)
@@ -1786,6 +1804,7 @@ fun AddTaskDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(20.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 Text(
                     text = "إضافة مهمة تذكيرية جديدة",
@@ -1886,11 +1905,15 @@ fun RestoreBackupDialog(
     onSelectFile: () -> Unit
 ) {
     var backupText by remember { mutableStateOf("") }
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 580.dp)
+                .padding(vertical = 12.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = DarkEmerald),
             border = BorderStroke(1.dp, CourtGreen)
@@ -1899,6 +1922,7 @@ fun RestoreBackupDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(20.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 Text(
                     text = "استعادة النسخة الاحتياطية",
@@ -2561,11 +2585,15 @@ fun CasePickerDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 24.dp),
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 600.dp)
+                .padding(vertical = 12.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = DarkEmerald),
             border = BorderStroke(1.dp, CourtGreen)
@@ -2598,7 +2626,7 @@ fun CasePickerDialog(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(280.dp)
+                        .heightIn(max = 280.dp, min = 120.dp)
                 ) {
                     if (filteredCases.isEmpty()) {
                         Box(
